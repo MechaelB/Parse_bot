@@ -30,3 +30,13 @@ services:
     depends_on:
       - redis
     restart: always
+
+  proxy_worker:
+    build:
+      context: ./proxy_worker
+    container_name: "proxy_worker"
+    volumes:
+      - ./shared:/app/shared
+    depends_on:
+      - redis
+

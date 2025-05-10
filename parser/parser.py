@@ -3,6 +3,13 @@ import pandas as pd
 import sys
 import os
 from urllib.parse import urlparse
+import random
+
+def load_proxies(file_path):
+    with open(file_path, 'r') as f:
+        return [line.strip() for line in f if line.strip()]
+
+
 
 def is_valid_url(url):
     try:
@@ -28,7 +35,21 @@ def is_valid_url(url):
     except:
         return False
 
+import redis
+import random
+
+def get_random_proxy():
+    redis_client = redis.Redis(host='redis', port=6379, db=0)  # имя Redis-контейнера
+    proxies = redis_client.lrange('proxy_list', 0, -1)
+    if proxies:
+        return random.choice(proxies).decode('utf-8')
+    return None
+
+
 def main(input_file):
+    # Загрузка списка прокси
+    proxies = load_proxies('proxies.txt')
+
     # Проверяем, существует ли файл
     if not os.path.exists(input_file):
         print(f"Файл {input_file} не найден.")
@@ -41,16 +62,18 @@ def main(input_file):
     results = []
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)  # headless=True для запуска без окна браузера
-        page = browser.new_page()
-
         for idx, link in enumerate(df.iloc[:, 4]):  # 5-й столбец
             if not isinstance(link, str) or not is_valid_url(link):
                 print(f"[{idx}] Пропуск: {link}")
                 continue
 
+            # Выбор случайного прокси
+            proxy = random.choice(proxies)
+
             try:
-                print(f"[{idx}] Переход по: {link}")
+                print(f"[{idx}] Переход по: {link} через прокси: {proxy}")
+                browser = p.chromium.launch(headless=True, proxy={"server": proxy})
+                page = browser.new_page()
                 page.goto(link, timeout=30000)
 
                 # Ждем появления вкладки
@@ -83,6 +106,8 @@ def main(input_file):
                     'Поставщик БИН': поставщик_бин
                 })
 
+                browser.close()
+
             except Exception as e:
                 print(f"[{idx}] Ошибка при обработке {link}: {e}")
                 results.append({
@@ -90,13 +115,12 @@ def main(input_file):
                     'Ошибка': str(e)
                 })
 
-        browser.close()
-
     # Сохраняем результаты один раз после всех переходов
     df_results = pd.DataFrame(results)
-    result_path = os.path.join(os.path.dirname(input_file), os.path.basename(input_file).replace(".csv", "_result.csv").replace(".xlsx", "_result.csv").replace(".txt", "_result.csv"))
-    df_results.to_csv(result_path, index=False)
+    df_results.to_csv(os.path.dirname(input_file)+ "/" + os.path.basename(input_file).replace(".xlsx","") + "_result.csv", index=False)
     print("Сохранено в файл results.csv")
+
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
