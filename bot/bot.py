@@ -37,14 +37,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         ['/start', '/help'],
-        ['Сказать привет', 'Сказать пока'],
-        ['/stop', '/start_parser']  # Добавляем новую команду /start_parser
+        ['/stop', '/start_parser']
     ]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text('Выбери действие:', reply_markup=reply_markup)
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text('Я могу:\n- Поздороваться\n- Попрощаться\n\nНажми на кнопку ниже!')
+    await update.message.reply_text('Данный бот поможет вам пропарсить ваш файл. и отправит вам файл в фаормате .csv')
+
 
 # Функция для обработки сообщений
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -54,11 +54,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = update.message.text.lower()
-    if 'привет' in text:
-        await update.message.reply_text('Привет-привет! 👋')
-    elif 'пока' in text:
-        await update.message.reply_text('Пока! Хорошего дня! 👋')
-    else:
+
+    if text != '/start' or text != '/help' or text != '/stop' or text != '/start_parser':
         await update.message.reply_text('Я не понимаю это сообщение. Попробуй нажать на кнопку!')
 
 # Функция для завершения сессии
@@ -69,29 +66,6 @@ async def close_session(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Храним файлы отдельно по каждому пользователю
 received_files = {}
-
-# # Обработка загруженного файла
-# async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-#     file = update.message.document
-#     file_name = file.file_name.lower()
-#     user_id = update.message.from_user.id
-
-#     # Проверка расширения файла
-#     allowed_extensions = ['.xlsx', '.csv', '.txt']
-#     if any(file_name.endswith(ext) for ext in allowed_extensions):
-#         file_path = os.path.join(FILES_DIR, file_name)
-#         file_object = await file.get_file()
-#         await file_object.download_to_drive(file_path)
-
-#         # Сохраняем путь к файлу отдельно для пользователя
-#         if user_id not in received_files:
-#             received_files[user_id] = []
-#         received_files[user_id].append(file_path)
-
-#         await update.message.reply_text(f"Файл '{file_name}' успешно получен и сохранен. Начинаю парсинг!")
-#         await start_parser(update, context, file_path)
-#     else:
-#         await update.message.reply_text("Неподдерживаемый формат файла. Пожалуйста, отправьте .xlsx, .csv или .txt.")
 
 # Обработка загруженного файла
 async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -143,29 +117,9 @@ async def start_parser(update: Update, context: ContextTypes.DEFAULT_TYPE, file_
 
     try:
         # Отправка задачи на парсинг через Celery
-        #task = celery_app.send_task('tasks.task', args=[file_path])
-
+        
         task = celery_app.send_task('tasks.task', args=[file_path, user_id])  # Передаём user_id
         await update.message.reply_text(f"Задача на парсинг запущена! ID задачи: {task.id}. Результат придет позже.")
-
-
-        # # Ожидание завершения задачи
-        # result = AsyncResult(task.id, app=celery_app)
-        # while not result.ready():
-        #     await asyncio.sleep(1)  # Ожидание завершения задачи
-
-        # # Получаем результат выполнения
-        # if result.status == 'SUCCESS':
-        #     await update.message.reply_text("Парсер завершил работу, отправляю результат!")
-
-        #     # Отправляем результат парсинга пользователю
-        #     if os.path.exists(result_file):
-        #         with open(result_file, 'rb') as f:
-        #             await update.message.reply_document(f, filename=result_file)
-        #     else:
-        #         await update.message.reply_text("Ошибка: Результат парсинга не найден.")
-        # else:
-        #     await update.message.reply_text(f"Ошибка при парсинге: {result.info}")
 
     except Exception as e:
         await update.message.reply_text(f"Произошла ошибка:\n{str(e)}")
