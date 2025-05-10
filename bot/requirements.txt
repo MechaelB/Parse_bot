@@ -1,0 +1,8 @@
+python-telegram-bot==20.6
+celery==5.3.6
+redis==5.0.3
+asyncio
+playwright
+pandas
+openpyxl
+python-dotenv==1.0.0
